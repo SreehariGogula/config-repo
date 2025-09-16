@@ -1,0 +1,47 @@
+
+
+server:
+  port: 8000
+  forward-headers-strategy: native
+  
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: book-your-seat-app
+          uri: http://localhost:8080
+          predicates:
+            - Path=/api/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: cbBookYourSeat
+                fallbackUri: forward:/fallback/book-your-seat
+                statusCodes: [ BAD_GATEWAY, SERVICE_UNAVAILABLE, GATEWAY_TIMEOUT, TOO_MANY_REQUESTS ]
+          metadata:
+            connect-timeout: 500
+            response-timeout: 3000
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      cbBookYourSeat:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        slowCallDurationThreshold: 2s
+        slowCallRateThreshold: 50
+        waitDurationInOpenState: 15s
+        permittedNumberOfCallsInHalfOpenState: 2
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+
+management:
+  endpoints.web.exposure.include: health,metrics,prometheus
+  
+eureka:
+    client:
+      service-url:
+        defaultZone: http://localhost:8761/eureka/
+      register-with-eureka: true
+      fetch-registry: true
